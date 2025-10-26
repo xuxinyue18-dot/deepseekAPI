@@ -148,3 +148,11 @@ def test_manual_edits_do_not_persist_in_cache(
     ), "manual edits should not leak into cached snapshots"
     assert second.feedback == original_feedback
     assert second.feedback is not first.feedback
+
+
+def test_get_webpage_content_rejects_unsafe_urls(notebook_module):
+    blocked = notebook_module.get_webpage_content("ftp://example.com/resource")
+    assert "不受信任" in blocked
+
+    loopback = notebook_module.get_webpage_content("http://127.0.0.1/internal")
+    assert "不受信任" in loopback
