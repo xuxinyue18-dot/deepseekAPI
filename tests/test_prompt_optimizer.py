@@ -148,3 +148,23 @@ def test_manual_edits_do_not_persist_in_cache(
     ), "manual edits should not leak into cached snapshots"
     assert second.feedback == original_feedback
     assert second.feedback is not first.feedback
+
+
+def test_clone_returns_independent_payload(notebook_module):
+    original = notebook_module.OptimizedPrompt(
+        original="orig",
+        optimized="opt",
+        structured="structured",
+        score=42,
+        feedback=["keep"],
+    )
+
+    clone = original.clone()
+
+    assert clone is not original
+    assert clone.optimized == original.optimized
+    assert clone.feedback == ["keep"]
+
+    clone.feedback.append("mutated")
+
+    assert original.feedback == ["keep"], "mutating clone should not affect source"
