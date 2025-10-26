@@ -110,3 +110,41 @@ def test_search_prompt_uses_correct_phrase(notebook_module):
         isinstance(const, str) and target in const
         for const in notebook_module.run_cli_assistant.__code__.co_consts
     )
+
+
+def test_manual_edits_do_not_persist_in_cache(
+    monkeypatch: pytest.MonkeyPatch, notebook_module
+):
+    monkeypatch.setattr(
+        notebook_module.PromptOptimizer,
+        "_call_model",
+        lambda self, prompt: f"{prompt}-optimized",
+    )
+    monkeypatch.setattr(
+        notebook_module,
+        "build_structured_prompt",
+        lambda optimized: f"STRUCTURED::{optimized}",
+    )
+    monkeypatch.setattr(
+        notebook_module,
+        "review_prompt",
+        lambda structured: (95, ["looks good"]),
+    )
+
+    optimizer = notebook_module.PromptOptimizer()
+    first = optimizer.optimize("question")
+    original_structured = first.structured
+    original_feedback = list(first.feedback)
+
+    # Simulate the CLI edit branch mutating the returned payload.
+    first.structured = "MANUALLY-EDITED"
+    first.feedback.append("EXTRA-FEEDBACK")
+
+    second = optimizer.optimize("question")
+
+    assert second is not first, "cached optimize results must return new payload objects"
+    assert (
+        second.structured == original_structured
+    ), "manual edits should not leak into cached snapshots"
+    assert second.feedback == original_feedback
+    assert second.feedback is not first.feedback
